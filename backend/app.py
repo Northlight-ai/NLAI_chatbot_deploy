@@ -17,23 +17,26 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Mount the built frontend files
-app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+# ✅ Define full path to static directory
+static_path = os.path.join(os.path.dirname(__file__), "..", "static")
 
-# Serve frontend from root
+# ✅ Mount the static frontend build folder
+app.mount("/static", StaticFiles(directory=static_path, html=True), name="static")
+
+# Serve the React index.html for "/"
 @app.get("/")
 async def serve_index():
-    return FileResponse("static/index.html")
+    return FileResponse(os.path.join(static_path, "index.html"))
 
-# Optional: Catch-all for React Router paths
+# React Router support — catch-all route
 @app.get("/{full_path:path}")
 async def catch_all(full_path: str):
-    file_path = os.path.join("static", "index.html")
-    if os.path.exists(file_path):
-        return FileResponse(file_path)
+    index_file = os.path.join(static_path, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
     return {"error": "Frontend not found"}
 
-# API route
+# Your chatbot API route
 @app.get("/chat")
 def chat(query: str = Query(..., description="User question")):
     answer = get_answer(query)

@@ -20,21 +20,21 @@ FROM python:3.13-slim
 # Set working directory
 WORKDIR /app
 
-# Copy backend code
+# Copy backend source
 COPY backend ./backend
 
-# Copy frontend build into backend/static
-COPY --from=frontend-builder /app/frontend/dist ./backend/static
+# Copy frontend build into static folder in backend
+COPY --from=frontend-builder /app/frontend/dist ./static
 
-# Copy root-level requirements file
+# Copy root-level requirements.txt
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set PYTHONPATH for proper imports
+# Set PYTHONPATH so "from backend.xxx import yyy" works
 ENV PYTHONPATH=/app
 
-# Expose the port and run FastAPI
+# Expose the port and start FastAPI with uvicorn
 ENV PORT=8000
 CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
