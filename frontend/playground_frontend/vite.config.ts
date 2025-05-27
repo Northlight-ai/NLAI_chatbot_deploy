@@ -4,9 +4,9 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 export default defineConfig(({ mode }) => ({
-  base: '/', // ✅ required for correct relative paths
+  base: '/',
   build: {
-    outDir: 'dist', // ✅ ensures output lands in /app/dist inside container
+    outDir: 'dist', // Ensure this matches what nginx expects
   },
   server: {
     host: "::",
@@ -14,8 +14,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === 'development' &&
-    componentTagger(),
+    mode === 'development' && componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
