@@ -5,10 +5,3 @@ __pycache__/
 .env
 *.ipynb
 notebooks/
-
-
-.env
-frontend/playground_frontend/node_modules/
-__pycache__/
-*.pyc
-*.log

@@ -1,40 +1,50 @@
-# Stage 1: Build Frontend
-FROM node:20 AS frontend-builder
+# Base image for Python (backend)
+FROM python:3.11-slim
 
-# Set working directory for frontend
+# Set up Python backend
 WORKDIR /app
 
-# Copy only frontend source
-COPY frontend/playground_frontend ./frontend
-
-# Move into frontend folder
-WORKDIR /app/frontend
-
-# Install and build frontend
-RUN npm install && npm run build
-
-
-# Stage 2: Backend with Frontend
-FROM python:3.13-slim
-
-# Set working directory
-WORKDIR /app
-
-# Copy backend source
-COPY backend ./backend
-
-# Copy frontend build into static folder in backend
-COPY --from=frontend-builder /app/frontend/dist ./static
-
-# Copy root-level requirements.txt
+# Install backend dependencies
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set PYTHONPATH so "from backend.xxx import yyy" works
-ENV PYTHONPATH=/app
+# Copy the full project
+COPY . .
 
-# Expose the port and start FastAPI with uvicorn
-ENV PORT=8000
-CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Set PYTHONPATH so backend modules resolve
+ENV PYTHONPATH="${PYTHONPATH}:/app"
+
+# -----------------------------
+# Install Node for frontend
+# -----------------------------
+# Install Node.js manually because slim image doesn’t have it
+RUN apt-get update && apt-get install -y curl gnupg && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Set working directory for frontend build
+WORKDIR /app/frontend/playground_frontend
+
+# Install frontend deps & build
+COPY frontend/playground_frontend/package*.json ./
+COPY frontend/playground_frontend/.npmrc .npmrc
+RUN npm install
+COPY frontend/playground_frontend ./
+RUN npm run build
+RUN npm install -g serve
+
+# -----------------------------
+# Install supervisor to run both
+# -----------------------------
+RUN apt-get update && apt-get install -y supervisor && \
+    mkdir -p /var/log/supervisor
+
+# Copy supervisor config
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+EXPOSE 8080
+EXPOSE 10000
+
+# Start both services
+CMD ["/usr/bin/supervisord"]
