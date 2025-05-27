@@ -18,18 +18,19 @@ ENV PYTHONPATH="${PYTHONPATH}:/app"
 # --- Stage 3: Final image with Supervisor, Nginx, and Backend ---
 FROM python:3.11-slim
 
-# ✅ Install system tools and uvicorn
+# ✅ Install system tools, Nginx, Supervisor, and Uvicorn
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     supervisor \
     nginx \
-    netcat \
+    netcat-openbsd \
     ca-certificates \
     gnupg && \
     pip install --no-cache-dir uvicorn && \
     rm -rf /var/lib/apt/lists/*
+
 
 # Set working directory
 WORKDIR /app
