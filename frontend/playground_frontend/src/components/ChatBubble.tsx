@@ -62,7 +62,7 @@ const ChatBubble = () => {
 
     try {
       const encodedQuery = encodeURIComponent(currentInput);
-      const url = `http://localhost:10000/chat?query=${encodedQuery}`;
+      const url = `/api/chat?query=${encodedQuery}`;
 
       console.log('Sending request to:', url);
 

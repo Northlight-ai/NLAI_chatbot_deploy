@@ -1,50 +1,39 @@
-# Base image for Python (backend)
-FROM python:3.11-slim
+# --- Stage 1: Build frontend ---
+FROM node:20 as frontend
 
-# Set up Python backend
 WORKDIR /app
-
-# Install backend dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the full project
-COPY . .
-
-# Set PYTHONPATH so backend modules resolve
-ENV PYTHONPATH="${PYTHONPATH}:/app"
-
-# -----------------------------
-# Install Node for frontend
-# -----------------------------
-# Install Node.js manually because slim image doesn’t have it
-RUN apt-get update && apt-get install -y curl gnupg && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Set working directory for frontend build
-WORKDIR /app/frontend/playground_frontend
-
-# Install frontend deps & build
 COPY frontend/playground_frontend/package*.json ./
 COPY frontend/playground_frontend/.npmrc .npmrc
 RUN npm install
-COPY frontend/playground_frontend ./
+COPY frontend/playground_frontend .
 RUN npm run build
-RUN npm install -g serve
 
-# -----------------------------
-# Install supervisor to run both
-# -----------------------------
-RUN apt-get update && apt-get install -y supervisor && \
-    mkdir -p /var/log/supervisor
+# --- Stage 2: Build backend ---
+FROM python:3.11-slim as backend
 
-# Copy supervisor config
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+ENV PYTHONPATH="${PYTHONPATH}:/app"
 
-EXPOSE 8080
-EXPOSE 10000
+# --- Stage 3: Final stage with nginx and both apps ---
+FROM nginx:alpine
 
-# Start both services
-CMD ["/usr/bin/supervisord"]
+# Copy built frontend to Nginx html
+COPY --from=frontend /app/dist /usr/share/nginx/html
+
+# Copy custom Nginx config
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Copy backend
+COPY --from=backend /app /app
+
+# Install Python & Uvicorn
+RUN apk add --no-cache python3 py3-pip && \
+    pip install --no-cache-dir uvicorn
+
+EXPOSE 80
+
+# Start both Nginx and backend
+CMD sh -c "uvicorn backend.app:app --host 0.0.0.0 --port 10000 & nginx -g 'daemon off;'"
