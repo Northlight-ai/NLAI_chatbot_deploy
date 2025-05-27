@@ -42,6 +42,9 @@ COPY --from=frontend /app/dist /var/www/html
 # Copy Nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
 
+# ✅ Ensure no conflicting Nginx default config
+RUN rm -f /etc/nginx/conf.d/default.conf
+
 # Expose HTTP port
 EXPOSE 80
 
