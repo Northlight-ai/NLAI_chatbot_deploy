@@ -3,6 +3,6 @@ services:
     name: nlai-chatbot
     env: docker
     plan: free
-    dockerCommand: nginx -g 'daemon off;'
+    dockerCommand: supervisord -c /etc/supervisord.conf
     ports:
       - 80
