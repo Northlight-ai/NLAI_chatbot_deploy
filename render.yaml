@@ -5,4 +5,5 @@ services:
     plan: free
     dockerCommand: supervisord -c /etc/supervisord.conf
     ports:
-      - 80
+      - port: 80
+        protocol: http
