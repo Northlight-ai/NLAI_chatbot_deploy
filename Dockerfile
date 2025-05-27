@@ -1,64 +1,44 @@
-# 1. Base image for both backend and frontend build
-FROM python:3.11-slim AS base
-
-# Install system dependencies
-RUN apt-get update && \
-    apt-get install -y nginx supervisor nodejs npm && \
-    rm -rf /var/lib/apt/lists/*
-
-# 2. Build the frontend (Vite/React)
-FROM node:20 AS frontend-builder
-
-WORKDIR /app/frontend/playground_frontend
-
-# Copy frontend only
-COPY frontend/playground_frontend/package*.json ./
-COPY frontend/playground_frontend/ ./
-
+# ---- 1. Build frontend ----
+FROM node:20 as frontend-build
+WORKDIR /frontend
+COPY frontend/playground_frontend ./playground_frontend
+WORKDIR /frontend/playground_frontend
 RUN npm install && npm run build
 
-# 3. Backend build (in main Python image)
-FROM base AS backend
-
+# ---- 2. Build backend ----
+FROM python:3.11-slim as backend-build
 WORKDIR /app
-
-# Copy backend code
-COPY backend/ ./backend
-
-# Install Python requirements if you have one
-# If you want to use requirements.txt at root, else skip
-COPY requirements.txt ./
+COPY backend ./backend
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. Final image
-FROM base
+# ---- 3. Final image ----
+FROM python:3.11-slim
 
+# System dependencies for nginx and supervisor
+RUN apt-get update && \
+    apt-get install -y nginx supervisor && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create required folders
 WORKDIR /app
 
-# Copy built frontend from builder
-COPY --from=frontend-builder /app/frontend/playground_frontend/dist /app/frontend_dist
+# Copy backend code and dependencies
+COPY --from=backend-build /app/backend ./backend
+COPY --from=backend-build /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY requirements.txt .
 
-# Copy backend
-COPY backend/ ./backend
+# Copy built frontend
+COPY --from=frontend-build /frontend/playground_frontend/dist /app/frontend_dist
 
-# Copy requirements and re-install in final (for safety, uses cache)
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy nginx/supervisord configs
+# Copy configs
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY supervisord.conf /etc/supervisord.conf
 
-# Copy frontend static files into nginx default directory
-RUN rm -rf /var/www/html && \
-    ln -s /app/frontend_dist /var/www/html
+# Logs symlinks for Docker best practices
+RUN ln -sf /dev/stdout /var/log/nginx/access.log \
+    && ln -sf /dev/stderr /var/log/nginx/error.log
 
-# Make nginx log to stdout/stderr (for Docker/Render)
-RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
-    ln -sf /dev/stderr /var/log/nginx/error.log
-
-# Expose port 80 for nginx
 EXPOSE 80
 
-# Start supervisord to run both Nginx and Uvicorn
-CMD ["supervisord", "-c", "/etc/supervisord.conf"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
