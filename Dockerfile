@@ -3,10 +3,8 @@ FROM node:20 as frontend
 
 WORKDIR /app
 COPY frontend/playground_frontend/package*.json ./
-COPY frontend/playground_frontend/.npmrc .npmrc
-RUN npm install
-COPY frontend/playground_frontend .
-RUN npm run build
+COPY frontend/playground_frontend/ .
+RUN npm install && npm run build
 
 # --- Stage 2: Build backend ---
 FROM python:3.11-slim as backend
