@@ -18,7 +18,6 @@ ENV PYTHONPATH="${PYTHONPATH}:/app"
 # --- Stage 3: Final image with Supervisor, Nginx, and Backend ---
 FROM python:3.11-slim
 
-# ✅ Install system tools, Nginx, Supervisor, Uvicorn
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
@@ -33,23 +32,15 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Copy backend
 COPY --from=backend /app /app
 
-# Copy frontend built files to Nginx root
 COPY --from=frontend /app/dist /var/www/html
 
-# Copy configs
 COPY nginx.conf /etc/nginx/nginx.conf
 RUN rm -f /etc/nginx/conf.d/default.conf
+
 COPY supervisord.conf /etc/supervisord.conf
 
-# Nginx temp/cache dirs and ownership
-RUN mkdir -p /var/log /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp && \
-    chown -R www-data:www-data /var/cache/nginx
+EXPOSE 80
 
-# ✅ Validate Nginx config
-RUN nginx -t || (echo "❌ Nginx config invalid" && exit 1)
-
-EXPOSE 10000
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
