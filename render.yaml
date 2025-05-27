@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: nlai-chatbot
+    env: docker
+    plan: free
+    dockerCommand: nginx -g 'daemon off;'
+    ports:
+      - 80

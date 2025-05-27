@@ -20,3 +20,5 @@ __pycache__/
 
 # Ignore Jupyter Notebook checkpoints (optional)
 .ipynb_checkpoints/
+
+frontend/playground_frontend/node_modules

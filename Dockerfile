@@ -1,6 +1,5 @@
 # --- Stage 1: Build frontend ---
 FROM node:20 as frontend
-
 WORKDIR /app
 COPY frontend/playground_frontend/package*.json ./
 COPY frontend/playground_frontend/ .
@@ -8,43 +7,40 @@ RUN npm install && npm run build
 
 # --- Stage 2: Build backend ---
 FROM python:3.11-slim as backend
-
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 ENV PYTHONPATH="${PYTHONPATH}:/app"
 
-# --- Stage 3: Final image with Python + Nginx ---
+# --- Stage 3: Final image with Nginx + FastAPI ---
 FROM python:3.11-slim
 
-# Install Nginx and dependencies
-RUN apt-get update && \
-    apt-get install -y nginx curl && \
+# Install dependencies
+RUN apt-get update && apt-get install -y nginx supervisor curl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Optional: Create non-root user (best practice)
+# Optional: Create non-root user
 RUN useradd -ms /bin/bash appuser
-
 WORKDIR /app
 
-# Copy backend code from build stage
+# Copy backend from build stage
 COPY --from=backend /app /app
 
-# Install Python packages (reuse slim pip, no venv needed here)
-RUN pip install --upgrade pip && pip install -r requirements.txt
-
-# Copy frontend static files to nginx web root
+# Copy frontend static files from build stage
 COPY --from=frontend /app/dist /var/www/html
 
-# Copy Nginx config
+# Copy nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# ✅ Ensure no conflicting Nginx default config
+# Remove default site if exists
 RUN rm -f /etc/nginx/conf.d/default.conf
 
-# Expose HTTP port
+# Copy supervisord config
+COPY supervisord.conf /etc/supervisord.conf
+
+# Expose port Nginx listens on
 EXPOSE 80
 
-# Start Uvicorn in background, Nginx in foreground
-CMD sh -c "uvicorn backend.app:app --host 0.0.0.0 --port 10000 & nginx -g 'daemon off;'"
+# Run both Nginx and FastAPI via supervisor
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
