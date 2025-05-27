@@ -18,7 +18,7 @@ ENV PYTHONPATH="${PYTHONPATH}:/app"
 # --- Stage 3: Final image with Supervisor, Nginx, and Backend ---
 FROM python:3.11-slim
 
-# ✅ Install system tools, Nginx, Supervisor, and Uvicorn
+# ✅ Install system tools, Nginx, Supervisor, Uvicorn
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
@@ -31,32 +31,25 @@ RUN apt-get update && \
     pip install --no-cache-dir uvicorn && \
     rm -rf /var/lib/apt/lists/*
 
-
-# Set working directory
 WORKDIR /app
 
-# Copy backend code
+# Copy backend
 COPY --from=backend /app /app
 
-# Copy frontend built static files to nginx web root
+# Copy frontend built files to Nginx root
 COPY --from=frontend /app/dist /var/www/html
 
-# Copy nginx config
+# Copy configs
 COPY nginx.conf /etc/nginx/nginx.conf
 RUN rm -f /etc/nginx/conf.d/default.conf
-
-# Copy supervisor config
 COPY supervisord.conf /etc/supervisord.conf
 
-# Optional: set ownership for Nginx cache
+# Nginx temp/cache dirs and ownership
 RUN mkdir -p /var/log /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp && \
     chown -R www-data:www-data /var/cache/nginx
 
-# ✅ Test Nginx config
-RUN nginx -t && echo "✅ Nginx config valid" || echo "❌ Nginx config invalid"
+# ✅ Validate Nginx config
+RUN nginx -t || (echo "❌ Nginx config invalid" && exit 1)
 
-# Expose the public port (Render will detect 10000)
 EXPOSE 10000
-
-# Start both backend and nginx using supervisor
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
