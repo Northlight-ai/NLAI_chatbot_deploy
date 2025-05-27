@@ -71,7 +71,7 @@ multidict==6.4.4
 mypy_extensions==1.1.0
 numpy==2.2.6
 oauthlib==3.2.2
-onnxruntime==1.22.0
+onnxruntime==1.17.1
 openai==1.82.0
 opentelemetry-api==1.33.1
 opentelemetry-exporter-otlp-proto-common==1.33.1
@@ -153,3 +153,4 @@ xxhash==3.5.0
 yarl==1.20.0
 zipp==3.22.0
 zstandard==0.23.0
+

@@ -18,10 +18,12 @@ COPY . .
 ENV PYTHONPATH="${PYTHONPATH}:/app"
 
 # --- Stage 3: Final stage with nginx and both apps ---
-FROM nginx:alpine
+FROM nginx:bullseye
 
-# Install Python, pip, and venv
-RUN apk add --no-cache python3 py3-pip py3-virtualenv bash
+# Install Python, pip, and venv (Debian-based)
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip python3-venv curl && \
+    apt-get clean
 
 # Set workdir
 WORKDIR /app
@@ -29,17 +31,17 @@ WORKDIR /app
 # Copy backend code
 COPY --from=backend /app /app
 
-# Create and activate a virtual environment
+# Set up virtualenv and install Python deps
 RUN python3 -m venv /app/venv && \
-    /app/venv/bin/pip install --no-cache-dir uvicorn -r requirements.txt
+    /app/venv/bin/pip install --upgrade pip && \
+    /app/venv/bin/pip install -r requirements.txt
 
-# Copy built frontend to nginx html
+# Copy frontend build to nginx html
 COPY --from=frontend /app/dist /usr/share/nginx/html
 
-# Copy nginx config
+# Copy Nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 80
 
-# Start uvicorn in background and nginx in foreground
 CMD sh -c "/app/venv/bin/uvicorn backend.app:app --host 0.0.0.0 --port 10000 & nginx -g 'daemon off;'"
