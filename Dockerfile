@@ -6,6 +6,9 @@ RUN npm install
 COPY frontend/playground_frontend/ .
 RUN npm run build
 
+# Debug: List what was built
+RUN echo "=== Frontend build contents ===" && ls -la dist/ && echo "=== End frontend contents ==="
+
 # --- Stage 2: Build backend ---
 FROM python:3.11-slim as backend
 WORKDIR /app
@@ -36,22 +39,45 @@ RUN pip install --upgrade pip && pip install "uvicorn[standard]" && pip install 
 # Copy built frontend files
 COPY --from=frontend /app/dist /var/www/html
 
+# Debug: Verify frontend files were copied
+RUN echo "=== Checking /var/www/html contents ===" && \
+    ls -la /var/www/html/ && \
+    echo "=== End /var/www/html contents ===" && \
+    if [ -f /var/www/html/index.html ]; then echo "✅ index.html found"; else echo "❌ index.html NOT found"; fi
+
 # Copy nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
-RUN rm -f /etc/nginx/sites-enabled/default
+RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-available/default
 
 # Copy supervisor config
 COPY supervisord.conf /etc/supervisord.conf
 
-# Create log directory
-RUN mkdir -p /var/log
+# Debug: Verify config files
+RUN echo "=== Checking nginx config ===" && \
+    nginx -t && \
+    echo "✅ Nginx config is valid" && \
+    echo "=== Checking supervisord config ===" && \
+    ls -la /etc/supervisord.conf
 
-# Ensure nginx can write to temp directories
-RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp && \
-    chown -R www-data:www-data /var/cache/nginx
+# Create log directory and set permissions
+RUN mkdir -p /var/log /var/run && \
+    mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp && \
+    chown -R www-data:www-data /var/cache/nginx /var/log/nginx* || true
+
+# Create nginx run directory
+RUN mkdir -p /var/lib/nginx
 
 # Expose HTTP port
 EXPOSE 80
 
-# Run both backend and nginx through supervisor
-CMD ["supervisord", "-c", "/etc/supervisord.conf"]
+# Debug startup script
+RUN echo '#!/bin/bash' > /start.sh && \
+    echo 'echo "=== Starting services ==="' >> /start.sh && \
+    echo 'echo "Checking if frontend files exist:"' >> /start.sh && \
+    echo 'ls -la /var/www/html/' >> /start.sh && \
+    echo 'echo "Starting supervisord..."' >> /start.sh && \
+    echo 'exec supervisord -c /etc/supervisord.conf' >> /start.sh && \
+    chmod +x /start.sh
+
+# Use debug startup script
+CMD ["/start.sh"]
